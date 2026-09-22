@@ -19,6 +19,20 @@ app.use(
 );
 app.use(express.json({ limit: "1mb" }));
 
+// Serverless DB connection initialization middleware
+let dbPromise = null;
+app.use(async (_req, _res, next) => {
+  if (process.env.VERCEL && !isMongoConnected() && !dbPromise && process.env.MONGODB_URI) {
+    dbPromise = connectDB().catch((err) => {
+      console.warn("Vercel connectDB error:", err.message);
+    });
+  }
+  if (dbPromise) {
+    await dbPromise;
+  }
+  next();
+});
+
 app.get("/api/health", (_req, res) => {
   const mongoActive = isMongoConnected();
   res.json({
@@ -56,6 +70,9 @@ async function startServer() {
   });
 }
 
-startServer();
+// Start standalone HTTP listener only when running locally (not in Vercel serverless)
+if (!process.env.VERCEL) {
+  startServer();
+}
 
 export default app;
