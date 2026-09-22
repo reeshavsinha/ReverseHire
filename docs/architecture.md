@@ -1,161 +1,150 @@
 # ReverseHire Architecture
 
-## Overview
+## 1. System Overview
 
-ReverseHire is a small full-stack reverse-recruitment application:
-
-```mermaid
-flowchart LR
-  browser[ReactViteFrontend] -->|HTTPJSON| api[ExpressRESTAPI]
-  api --> routes[Routes]
-  routes --> controllers[Controllers]
-  controllers --> store[InMemoryDataStore]
-  store --> seed[SeedData]
-  store -.-> future[(MongoDBLater)]
-```
-
-The current implementation intentionally runs without MongoDB. The Express server loads seeded records into memory when it starts. The REST contract is designed so MongoDB can be introduced later without rewriting the frontend.
-
-## Repository structure
-
-```text
-ReverseHire/
-├─ backend/
-│  ├─ controllers/       Request handling and business rules
-│  ├─ data/              Seed records
-│  ├─ middleware/        Async and error middleware
-│  ├─ routes/            REST endpoint definitions
-│  ├─ seed/              Repeatable in-memory seed command
-│  ├─ store/             Current persistence abstraction
-│  ├─ utils/             Validation and normalization
-│  └─ server.js          Express application entry point
-├─ frontend/
-│  └─ src/
-│     ├─ components/     Reusable UI pieces
-│     ├─ context/        Demo identity state
-│     ├─ hooks/          Shared React hooks
-│     ├─ pages/          Route-level screens
-│     ├─ services/       API client
-│     └─ styles/         Design tokens and global styles
-├─ docs/                 Project documentation
-└─ README.md
-```
-
-## Frontend architecture
-
-The frontend is a Vite React single-page application.
-
-- `App.jsx` defines routes with React Router.
-- `Layout.jsx` provides the shared navbar and footer.
-- `DemoContext` stores the active demo role and selected candidate/company ID.
-- `services/api.js` is the only layer that makes API requests.
-- `useFetch.js` handles loading, errors, data, and reloads.
-- Pages compose reusable components such as profile cards, opportunity cards, post cards, forms, and feedback states.
-- CSS variables in `styles/tokens.css` define the visual system.
-
-### Role-specific navigation
-
-Candidates see:
-
-- Dashboard
-- Community
-- My profile
-- Inbox
-
-Companies see:
-
-- Discover candidates
-- Dashboard
-- Send opportunity
-- Sent opportunities
-
-There is no authentication yet. The `Demo as` switcher uses `localStorage` only for the active demo context:
-
-```text
-reversehire-role
-reversehire-candidate
-reversehire-company
-```
-
-This is suitable for demonstration, not production authorization.
-
-## Backend architecture
-
-The backend follows a routes/controllers/store separation:
-
-1. Express receives the request.
-2. A route maps the URL and HTTP method to a controller.
-3. The controller validates input, applies business rules, and calls the store.
-4. The store returns cloned records.
-5. The controller sends a consistent JSON response.
-
-The API response format is:
-
-```json
-{
-  "success": true,
-  "data": {}
-}
-```
-
-Errors use:
-
-```json
-{
-  "success": false,
-  "message": "Please fix the highlighted fields",
-  "errors": []
-}
-```
-
-Global middleware handles JSON parsing, CORS, missing routes, and unexpected errors.
-
-## Current persistence lifecycle
-
-```text
-Server starts
-  ↓
-DataStore.reset()
-  ↓
-Seed candidates, companies, opportunities, and posts
-  ↓
-API reads and mutates in-memory arrays
-  ↓
-Server restarts
-  ↓
-All runtime mutations are discarded
-```
-
-The browser never stores application records. It only stores the selected demo identity.
-
-## Social architecture
-
-Candidates share posts of type `TEXT`, `PROJECT`, or `VIDEO`. Posts contain embedded comments and reactions to keep the MVP small.
+ReverseHire is a full-stack web application designed for candidate discovery, placement, and reverse recruitment. Built for the Portfolio-Driven Assessment, it combines a responsive React single-page frontend, an Express REST API, and a MongoDB persistence layer with an automatic, resilient fallback engine.
 
 ```mermaid
 flowchart TD
-  candidate[ActiveCandidate] --> composer[PostComposer]
-  composer --> postApi[PostAPI]
-  postApi --> postStore[PostsCollection]
-  postStore --> feed[CommunityFeed]
-  postStore --> profile[CandidateActivity]
-  company[CompanyUser] --> discovery[CandidateDiscovery]
-  discovery --> publicProfile[PublicCandidateProfile]
+  subgraph Frontend["Frontend Layer (React 18 + Vite)"]
+    UI[Components & Pages]
+    Context[Demo Context & State]
+    ApiClient[API Service Layer (api.js)]
+  end
+
+  subgraph Backend["Backend Layer (Node.js + Express)"]
+    Server[server.js & Middleware]
+    Routes[Express Routers]
+    Controllers[Async Controllers]
+    Validation[Validation & Utils]
+  end
+
+  subgraph Persistence["Persistence & Database Layer"]
+    Models[Mongoose Schemas & Models]
+    MongoDB[(MongoDB Database)]
+    FallbackStore[(In-Memory DataStore Fallback)]
+  end
+
+  UI --> Context
+  UI --> ApiClient
+  ApiClient -->|HTTP REST / JSON| Server
+  Server --> Routes
+  Routes --> Controllers
+  Controllers --> Validation
+  Controllers --> Models
+  Models -->|Active Connection| MongoDB
+  Controllers -.->|Offline / Fallback| FallbackStore
 ```
 
-Video and image content is URL-based. No upload service or file storage is included.
+---
 
-## Future MongoDB architecture
-
-When MongoDB is added, controllers should retain their current response shapes. The main replacement is the persistence layer:
+## 2. Directory Structure
 
 ```text
-Current:
-Controller → DataStore arrays
-
-Future:
-Controller → Repository → Mongoose model → MongoDB
+Portfolio/
+├── backend/
+│   ├── config/
+│   │   └── db.js               # MongoDB Mongoose connection + connection state checks
+│   ├── controllers/            # Async REST controller handlers
+│   │   ├── candidateController.js
+│   │   ├── companyController.js
+│   │   ├── opportunityController.js
+│   │   └── postController.js
+│   ├── data/
+│   │   └── seedData.js         # Initial mock records (candidates, companies, opportunities, posts)
+│   ├── middleware/             # Centralized async & error handling
+│   ├── models/                 # Mongoose Data Models
+│   │   ├── Candidate.js
+│   │   ├── Company.js
+│   │   ├── Opportunity.js
+│   │   └── Post.js
+│   ├── routes/                 # Express router definitions
+│   ├── seed/
+│   │   └── seed.js             # MongoDB seeding script
+│   ├── store/
+│   │   └── dataStore.js        # In-memory store used for offline fallback
+│   ├── utils/
+│   │   └── validation.js       # Payload validation & sanitization
+│   └── server.js               # Application entry point & health check
+├── frontend/
+│   ├── src/
+│   │   ├── components/         # Reusable UI pieces (Navbar, Cards, Forms, Badges)
+│   │   ├── context/            # Role and identity state (DemoContext)
+│   │   ├── hooks/              # Shared React hooks (useFetch)
+│   │   ├── pages/              # Route views (Discovery, Profiles, Forms, Inbox, Feed)
+│   │   ├── services/           # Fetch API client (api.js)
+│   │   └── styles/             # Design tokens and global CSS
+│   └── index.html
+└── docs/                       # Architectural and technical documentation
 ```
 
-Because Mongoose calls are asynchronous, controllers will need to use `async`/`await`. The frontend API client should not need to change.
+---
 
+## 3. Frontend Architecture
+
+The frontend is built as a single-page application (SPA) with **React 18** and **Vite**:
+
+- **Routing**: `react-router-dom` handles page navigation across Candidate Discovery, Profiles, Dashboards, Opportunity Inbox, and Community Feed.
+- **Data Fetching Layer**: `services/api.js` centralizes all HTTP interactions with standard error formatting and query building.
+- **Identity Simulation**: `DemoContext.jsx` manages the active user role (`candidate` or `company`), persisting selections to `localStorage` for realistic testing without requiring heavy authentication.
+- **Styling**: Vanilla CSS utilizing CSS Custom Properties (`styles/tokens.css`) for consistent typography, modern color palettes, smooth hover states, and responsive flex/grid layouts.
+
+### User Workflows by Role
+
+```text
+Candidate Role:
+- Candidate Dashboard (/dashboard)
+- Community Feed & Discussion (/community)
+- Candidate Profile & Editing (/candidates/:id, /candidates/:id/edit)
+- Opportunity Inbox (/inbox) -> Accept / Decline offers
+
+Company Role:
+- Candidate Discovery (/candidates) -> Filter by skills, role, location
+- Send Opportunity (/opportunities/new)
+- Sent Outreach Log (/sent)
+- Company Profile (/companies/:id)
+```
+
+---
+
+## 4. Backend Architecture
+
+The backend follows clean separation of concerns:
+
+1. **Routing (`routes/`)**: Maps standard REST endpoints to specific controller actions.
+2. **Controllers (`controllers/`)**:
+   - Implemented with modern `async/await` patterns.
+   - Enforces business logic (e.g. only pending opportunities can be edited/accepted).
+   - Manages cascading deletes (e.g. deleting a candidate automatically purges associated opportunities).
+   - Optimizes database access with batch hydration to avoid N+1 queries.
+3. **Mongoose Models (`models/`)**: Structured schemas providing type casting, validation, and indexes.
+4. **Validation (`utils/validation.js`)**: Pure validation functions ensuring data integrity before persistence.
+5. **Centralized Error Handling (`middleware/errorHandler.js`)**: Standardized HTTP status codes and JSON error responses.
+
+---
+
+## 5. Dual-Engine Persistence Lifecycle
+
+To guarantee application availability across any evaluation environment:
+
+```text
+Server Boot
+   │
+   ▼
+Attempt MongoDB Connection (with 2.5s timeout)
+   │
+   ├─► Connected:
+   │     - Set isMongoConnected() = true
+   │     - Controllers execute Mongoose queries (Candidate.find, etc.)
+   │     - Health check reports: storage: "mongodb"
+   │
+   └─► Connection Failed / MONGODB_URI Unset:
+         - Set isMongoConnected() = false (Graceful Fallback)
+         - Log warning and activate in-memory DataStore
+         - Controllers execute DataStore operations
+         - Health check reports: storage: "in-memory", fallbackActive: true
+```
+
+This guarantees that:
+1. When MongoDB is available (locally or via MongoDB Atlas), full database persistence is utilized.
+2. If MongoDB is offline or not installed, the entire application remains fully functional with zero crashes.

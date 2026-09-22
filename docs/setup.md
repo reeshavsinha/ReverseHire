@@ -1,97 +1,96 @@
-# Development Setup
+# Development & Setup Guide
 
-## Prerequisites
+## 1. Prerequisites
 
-- Node.js LTS
-- npm
-- Git
-- A modern browser
+- **Node.js**: v18.0.0 or higher (LTS recommended)
+- **npm**: v9.0.0 or higher
+- **Git**: Installed for version control
+- **MongoDB** *(Optional)*:
+  - Local MongoDB instance (`mongodb://127.0.0.1:27017/reversehire`), OR
+  - Free MongoDB Atlas cluster URI, OR
+  - None required: The app automatically falls back to an in-memory database if MongoDB is not running.
 
-MongoDB is not required for the current version.
+---
 
-## Install dependencies
+## 2. Quick Start
 
-From the project root:
+### Step 1: Install Dependencies
+From the repository root:
 
 ```powershell
-npm install
 npm run install:all
 ```
+*(This installs root dependencies, backend dependencies including Mongoose, and frontend dependencies.)*
 
-## Start the application
-
-Run both frontend and backend:
-
-```powershell
-npm run dev
-```
-
-Default URLs:
-
-- Frontend: `http://localhost:5173`
-- Backend: `http://localhost:5000`
-- API health: `http://localhost:5000/api/health`
-
-If port `5173` or `5000` is already in use, stop the existing process or configure another port through environment variables.
-
-## Run each application separately
-
-Backend:
-
-```powershell
-npm run dev --prefix backend
-```
-
-Frontend:
-
-```powershell
-npm run dev --prefix frontend
-```
-
-## Environment variables
-
-Copy the example files when environment-specific configuration is needed:
+### Step 2: Configure Environment
+Copy the example files if you wish to customize configuration:
 
 ```powershell
 Copy-Item backend/.env.example backend/.env
 Copy-Item frontend/.env.example frontend/.env
 ```
 
-Backend:
-
-```text
+Default `backend/.env`:
+```env
 PORT=5000
 CLIENT_URL=http://localhost:5173
+MONGODB_URI=mongodb://127.0.0.1:27017/reversehire
 ```
 
-Frontend:
-
-```text
+Default `frontend/.env`:
+```env
 VITE_API_URL=http://localhost:5000/api
 ```
 
-## Seed data
-
-The backend loads seed data automatically on startup. To run the seed inspection command:
+### Step 3: (Optional) Seed Initial Records
+To populate your MongoDB database with sample candidates, companies, opportunities, and community posts:
 
 ```powershell
 npm run seed --prefix backend
 ```
 
-Current seed counts:
+### Step 4: Run the Application
+Launch both backend and frontend concurrently:
 
-- 5 candidates
-- 3 companies
-- 6 opportunities
-- 6 social posts
+```powershell
+npm run dev
+```
 
-Since storage is in memory, all changes reset when the backend restarts.
+- **Frontend**: [http://localhost:5173](http://localhost:5173)
+- **Backend REST API**: [http://localhost:5000/api](http://localhost:5000/api)
+- **API Health & Storage Status**: [http://localhost:5000/api/health](http://localhost:5000/api/health)
 
-## Production build
+---
+
+## 3. Running Services Independently
+
+You can also run backend and frontend in separate terminals:
+
+### Backend Only
+```powershell
+npm run dev --prefix backend
+```
+The server will boot with watch mode (`node --watch server.js`).
+
+### Frontend Only
+```powershell
+npm run dev --prefix frontend
+```
+Vite development server starts on port `5173`.
+
+---
+
+## 4. Production Build
+
+To test the frontend production build:
 
 ```powershell
 npm run build --prefix frontend
 ```
 
-The output is generated in `frontend/dist/`.
+The optimized bundle is generated in `frontend/dist/`.
+To preview the production bundle locally:
 
+```powershell
+npm run preview --prefix frontend
+```
