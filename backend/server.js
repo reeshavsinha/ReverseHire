@@ -70,9 +70,6 @@ async function startServer() {
   });
 }
 
-// Start standalone HTTP listener only when running locally (not in Vercel serverless)
-if (!process.env.VERCEL) {
-  startServer();
-}
+startServer();
 
 export default app;
